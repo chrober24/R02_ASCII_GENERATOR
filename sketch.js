@@ -2,6 +2,7 @@ let layers = [];
 let container;
 let canvas;
 let customFont;
+let usingCustomFont = true; // New variable to track font selection
 
 // Control Variables
 let numLayers = 4;
@@ -25,12 +26,17 @@ let fadeSpeedMax = 0.008;
 
 let globalAnimationSpeed = 0.01; // Speed control
 
+// Custom ASCII characters
+let asciiChars = '3 2 bc dga14 '; // Default characters with spaces preserved for formatting
+
 // UI Elements
 let sliders = {};
 let toggleButton;
 let screenshotButton;
 let notification;
 let isControlPanelVisible = false;
+let fontToggle; // New control for font selection
+let charInput; // New control for custom characters
 
 function preload() {
   // Load font if available, otherwise use default
@@ -38,6 +44,7 @@ function preload() {
     customFont = loadFont('ASSETS/marathon_font.otf');
   } catch (error) {
     console.log('Custom font not loaded, using default font');
+    usingCustomFont = false; // Set default font if custom font fails to load
     // The sketch will use default font
   }
 }
@@ -48,9 +55,7 @@ function setup() {
   canvas.parent(container);
 
   colorMode(HSL, 360, 100, 100, 100);
-  if (customFont) {
-    textFont(customFont);
-  }
+  updateFontSettings(); // Initialize font settings
   textAlign(CENTER, CENTER);
   noStroke();
   background(5); // Darker background for better contrast
@@ -120,6 +125,34 @@ function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
 }
 
+// New function to update font settings
+function updateFontSettings() {
+  if (usingCustomFont && customFont) {
+    textFont(customFont);
+  } else {
+    textFont('monospace');
+  }
+}
+
+// New function to handle font toggle change
+function toggleFont() {
+  usingCustomFont = !usingCustomFont;
+  updateFontSettings();
+  fontToggle.html(usingCustomFont ? 'Using Custom Font' : 'Using Monospace');
+}
+
+// New function to handle character input change
+function updateAsciiChars() {
+  const newChars = charInput.value();
+  if (newChars.trim() !== '') {
+    asciiChars = newChars;
+    // Update all layers with new characters
+    for (let layer of layers) {
+      layer.updateChars(asciiChars);
+    }
+  }
+}
+
 // 🔧 SETUP CONTROLS
 function setupControls() {
   const panel = select('#control-panel');
@@ -129,6 +162,41 @@ function setupControls() {
   toggleButton.mousePressed(toggleControlPanel);
 
   sliders.numLayers = createControlGroup('General', panel, 'Layers', 2, 10, numLayers, 1);
+
+  // Add font selection toggle
+  createTitle('Font Settings', panel);
+  
+  // Font toggle button
+  fontToggle = createButton(usingCustomFont ? 'Using Custom Font' : 'Using Monospace');
+  fontToggle.parent(panel);
+  fontToggle.class('button');
+  fontToggle.style('width', '100%');
+  fontToggle.style('margin-bottom', '15px');
+  fontToggle.mousePressed(toggleFont);
+  
+  // Character input for custom ASCII characters
+  const charInputLabel = createElement('label', 'Custom ASCII Characters');
+  charInputLabel.parent(panel);
+  charInputLabel.class('control-label');
+  
+  charInput = createInput(asciiChars);
+  charInput.parent(panel);
+  charInput.class('text-input');
+  charInput.style('width', '100%');
+  charInput.style('padding', '8px');
+  charInput.style('margin-bottom', '15px');
+  charInput.style('background', 'rgba(40, 40, 40, 0.8)');
+  charInput.style('border', '1px solid #444');
+  charInput.style('border-radius', '4px');
+  charInput.style('color', '#eaeaea');
+  
+  // Add apply button for character changes
+  const applyButton = createButton('Apply Characters');
+  applyButton.parent(panel);
+  applyButton.class('button');
+  applyButton.style('width', '100%');
+  applyButton.style('margin-bottom', '20px');
+  applyButton.mousePressed(updateAsciiChars);
 
   createTitle('Color Settings', panel);
   sliders.hueBase = createControl(panel, 'Hue Base', 0, 360, hueBase, 1);
@@ -316,7 +384,7 @@ class ASCIILayer {
     this.scaleFactor = this.depth;
 
     this.noiseScale = random(noiseScaleMin, noiseScaleMax);
-    this.chars = ['3', '2', ' ', 'b', 'c', 'd', 'g', 'a', '1', '4', ' '];
+    this.updateChars(asciiChars); // Initialize characters
 
     this.cols = floor(width / this.symbolSize);
     this.rows = floor(height / this.symbolSize);
@@ -340,6 +408,17 @@ class ASCIILayer {
 
     this.fadeSpeed = random(fadeSpeedMin, fadeSpeedMax);
     this.fadeOffset = random(TWO_PI);
+  }
+
+  // New method to update characters
+  updateChars(chars) {
+    // Convert string to array of chars, filter out empty elements
+    this.chars = chars.split('').filter(char => char !== '');
+    
+    // If somehow we end up with no characters, add a default
+    if (this.chars.length === 0) {
+      this.chars = ['•'];
+    }
   }
 
   update() {
