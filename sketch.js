@@ -106,6 +106,8 @@ let symmetrySelect; // Dropdown for symmetry options
 let noiseTypeSelect; // Dropdown for noise type
 let modifierSelect; // Dropdown for pattern modifiers
 let gridLayoutSelect; // Dropdown for grid layout
+let parallaxEnabled = true; // Track if parallax should be active
+let isTakingScreenshot = false; // Track if screenshot is in progress
 
 function preload() {
   // Load font if available, otherwise use default
@@ -148,6 +150,9 @@ function setup() {
 
 function draw() {
   background(0, 50); // Darker background with fade
+  
+  // Check if parallax should be enabled (not over UI and not taking screenshot)
+  parallaxEnabled = !isTakingScreenshot && !isMouseOverUI();
   
   // Draw the art elements
   layers.sort((a, b) => a.symbolSize - b.symbolSize);
@@ -405,6 +410,9 @@ function setupScreenshotButton() {
 }
 
 function takeScreenshot() {
+  // Disable parallax during screenshot
+  isTakingScreenshot = true;
+  
   // Hide controls temporarily for clean screenshot
   const controlPanel = select('#control-panel');
   const uiControls = select('.ui-controls');
@@ -416,10 +424,13 @@ function takeScreenshot() {
   controlPanel.addClass('hidden');
   uiControls.style('display', 'none');
   
-  // Wait a frame to ensure UI is hidden
+  // Wait a frame to ensure UI is hidden and parallax is centered
   setTimeout(() => {
     // Take the screenshot
     saveCanvas('ascii_art', 'png');
+    
+    // Re-enable parallax
+    isTakingScreenshot = false;
     
     // Show notification
     notification.addClass('notification-visible');
@@ -447,6 +458,33 @@ function toggleControlPanel() {
   } else {
     toggleButton.html('Show Controls');
   }
+}
+
+// Check if mouse is over any UI elements
+function isMouseOverUI() {
+  // Check if over the UI controls buttons (top-left area)
+  const uiControlsElt = document.querySelector('.ui-controls');
+  if (uiControlsElt) {
+    const rect = uiControlsElt.getBoundingClientRect();
+    if (mouseX >= rect.left && mouseX <= rect.right && 
+        mouseY >= rect.top && mouseY <= rect.bottom) {
+      return true;
+    }
+  }
+  
+  // Check if over the control panel (when visible)
+  if (isControlPanelVisible) {
+    const panelElt = document.querySelector('#control-panel');
+    if (panelElt) {
+      const rect = panelElt.getBoundingClientRect();
+      if (mouseX >= rect.left && mouseX <= rect.right && 
+          mouseY >= rect.top && mouseY <= rect.bottom) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
 }
 
 function createTitle(title, parent) {
@@ -571,7 +609,7 @@ function regenerateLayers() {
 
 // 🎲 RANDOMIZER FUNCTION
 function randomizeAll() {
-  sliders.numLayers.value(int(random(2, 6)));
+  sliders.numLayers.value(int(random(2, 10)));
 
   sliders.hueBase.value(random(0, 360));
   sliders.sat.value(random(50, 100));
@@ -712,8 +750,14 @@ class ASCIILayer {
     let layerAlpha = map(sin(this.fadeOffset + millis() * this.fadeSpeed), -1, 1, 20, 100);
 
     let parallaxStrength = 100 * (1 - this.depth);
-    let offsetX = map(mouseX, 0, width, -parallaxStrength, parallaxStrength);
-    let offsetY = map(mouseY, 0, height, -parallaxStrength, parallaxStrength);
+    let offsetX = 0;
+    let offsetY = 0;
+    
+    // Only apply parallax if enabled
+    if (parallaxEnabled) {
+      offsetX = map(mouseX, 0, width, -parallaxStrength, parallaxStrength);
+      offsetY = map(mouseY, 0, height, -parallaxStrength, parallaxStrength);
+    }
 
     push();
     translate(width / 2 + offsetX, height / 2 + offsetY);
