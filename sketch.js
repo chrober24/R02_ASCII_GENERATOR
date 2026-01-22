@@ -29,6 +29,70 @@ let globalAnimationSpeed = 0.01; // Speed control
 // Custom ASCII characters
 let asciiChars = '3 2 bc dga14 '; // Default characters with spaces preserved for formatting
 
+// Character set presets organized by font type
+const charPresets = {
+  marathon: [
+    { name: 'Default', chars: '3 2 bc dga14 ' }
+  ],
+  monospace: [
+    { name: 'Gradient Blocks', chars: '░▒▓' },
+    { name: 'Trigrams', chars: '☰☲☱☴☵☶☳☷' },
+    { name: 'Block Elements', chars: '▁▂▃▅▆▇▉▊▋█▌▐▍▎▏▕▀▔▬' },
+    { name: 'Rounded', chars: '◜◝◞◟◠◡◯' },
+    { name: 'Box Drawing', chars: '═║╗╔╚╝╠╣╩╦╬' },
+    { name: 'Diagonal Lines', chars: '╱╲╳╴╵╶╷' },
+    { name: 'Triangles', chars: '▲▴▶▸►▼▾◀◄◂' },
+    { name: 'Squares', chars: '❏❐❑❒' },
+    { name: 'Patterns', chars: '▣▤▥▧▦▨▩' }
+  ]
+};
+
+// Pattern and symmetry options
+const symmetryOptions = [
+  { name: 'Quad (4-fold)', value: 'quad' },
+  { name: 'None', value: 'none' },
+  { name: 'Horizontal', value: 'horizontal' },
+  { name: 'Vertical', value: 'vertical' },
+  { name: 'Radial 6-fold', value: 'radial6' },
+  { name: 'Radial 8-fold', value: 'radial8' },
+  { name: 'Radial 12-fold', value: 'radial12' },
+  { name: 'Diagonal', value: 'diagonal' }
+];
+
+const noiseTypeOptions = [
+  { name: 'Perlin', value: 'perlin' },
+  { name: 'Ridged', value: 'ridged' },
+  { name: 'Turbulence', value: 'turbulence' },
+  { name: 'Fractal (FBM)', value: 'fbm' },
+  { name: 'Worley/Cellular', value: 'worley' },
+  { name: 'Domain Warping', value: 'warp' },
+  { name: 'Simplex-like', value: 'simplex' }
+];
+
+const patternModifierOptions = [
+  { name: 'None', value: 'none' },
+  { name: 'Wave/Ripple', value: 'wave' },
+  { name: 'Spiral/Vortex', value: 'spiral' },
+  { name: 'Concentric Rings', value: 'rings' },
+  { name: 'Stripes (Horizontal)', value: 'stripes_h' },
+  { name: 'Stripes (Vertical)', value: 'stripes_v' },
+  { name: 'Stripes (Diagonal)', value: 'stripes_d' },
+  { name: 'Checkerboard', value: 'checker' }
+];
+
+const gridLayoutOptions = [
+  { name: 'Cartesian', value: 'cartesian' },
+  { name: 'Polar', value: 'polar' },
+  { name: 'Hexagonal', value: 'hexagonal' },
+  { name: 'Brick/Offset', value: 'brick' }
+];
+
+// Current pattern settings
+let currentSymmetry = 'quad';
+let currentNoiseType = 'perlin';
+let currentModifier = 'none';
+let currentGridLayout = 'cartesian';
+
 // UI Elements
 let sliders = {};
 let toggleButton;
@@ -37,6 +101,11 @@ let notification;
 let isControlPanelVisible = false;
 let fontToggle; // New control for font selection
 let charInput; // New control for custom characters
+let presetSelect; // Dropdown for character presets
+let symmetrySelect; // Dropdown for symmetry options
+let noiseTypeSelect; // Dropdown for noise type
+let modifierSelect; // Dropdown for pattern modifiers
+let gridLayoutSelect; // Dropdown for grid layout
 
 function preload() {
   // Load font if available, otherwise use default
@@ -139,6 +208,41 @@ function toggleFont() {
   usingCustomFont = !usingCustomFont;
   updateFontSettings();
   fontToggle.html(usingCustomFont ? 'Using Custom Font' : 'Using Monospace');
+  updatePresetDropdown();
+}
+
+// Function to update the preset dropdown based on current font
+function updatePresetDropdown() {
+  if (!presetSelect) return;
+  
+  // Clear existing options by removing and recreating
+  presetSelect.elt.innerHTML = '';
+  
+  // Add default "Select Preset" option
+  let defaultOpt = document.createElement('option');
+  defaultOpt.value = '';
+  defaultOpt.text = '-- Select Preset --';
+  presetSelect.elt.appendChild(defaultOpt);
+  
+  // Get presets for current font type
+  const presets = usingCustomFont ? charPresets.marathon : charPresets.monospace;
+  
+  // Add preset options
+  for (let preset of presets) {
+    let opt = document.createElement('option');
+    opt.value = preset.chars;
+    opt.text = preset.name;
+    presetSelect.elt.appendChild(opt);
+  }
+}
+
+// Function to handle preset selection
+function applyPreset() {
+  const selectedChars = presetSelect.value();
+  if (selectedChars && selectedChars !== '') {
+    charInput.value(selectedChars);
+    updateAsciiChars();
+  }
 }
 
 // New function to handle character input change
@@ -174,6 +278,30 @@ function setupControls() {
   fontToggle.style('margin-bottom', '15px');
   fontToggle.mousePressed(toggleFont);
   
+  // Character preset dropdown
+  const presetLabel = createElement('label', 'Character Presets');
+  presetLabel.parent(panel);
+  presetLabel.class('control-label');
+  presetLabel.style('margin-top', '0');
+  presetLabel.style('margin-bottom', '5px');
+  
+  presetSelect = createSelect();
+  presetSelect.parent(panel);
+  presetSelect.style('width', '100%');
+  presetSelect.style('padding', '8px');
+  presetSelect.style('margin-bottom', '15px');
+  presetSelect.style('background', 'rgba(40, 40, 40, 0.8)');
+  presetSelect.style('border', '1px solid #444');
+  presetSelect.style('border-radius', '4px');
+  presetSelect.style('color', '#eaeaea');
+  presetSelect.style('font-family', "'Courier New', monospace");
+  presetSelect.style('font-size', '14px');
+  presetSelect.style('cursor', 'pointer');
+  presetSelect.changed(applyPreset);
+  
+  // Initialize preset dropdown options
+  updatePresetDropdown();
+  
   // Character input for custom ASCII characters
   const charInputLabel = createElement('label', 'Custom ASCII Characters');
   charInputLabel.parent(panel);
@@ -197,6 +325,37 @@ function setupControls() {
   applyButton.style('width', '100%');
   applyButton.style('margin-bottom', '20px');
   applyButton.mousePressed(updateAsciiChars);
+
+  // Pattern Settings Section
+  createTitle('Pattern Settings', panel);
+  
+  // Symmetry dropdown
+  symmetrySelect = createStyledDropdown(panel, 'Symmetry', symmetryOptions, currentSymmetry);
+  symmetrySelect.changed(() => {
+    currentSymmetry = symmetrySelect.value();
+    regenerateLayers();
+  });
+  
+  // Noise Type dropdown
+  noiseTypeSelect = createStyledDropdown(panel, 'Noise Type', noiseTypeOptions, currentNoiseType);
+  noiseTypeSelect.changed(() => {
+    currentNoiseType = noiseTypeSelect.value();
+    regenerateLayers();
+  });
+  
+  // Pattern Modifier dropdown
+  modifierSelect = createStyledDropdown(panel, 'Pattern Modifier', patternModifierOptions, currentModifier);
+  modifierSelect.changed(() => {
+    currentModifier = modifierSelect.value();
+    regenerateLayers();
+  });
+  
+  // Grid Layout dropdown
+  gridLayoutSelect = createStyledDropdown(panel, 'Grid Layout', gridLayoutOptions, currentGridLayout);
+  gridLayoutSelect.changed(() => {
+    currentGridLayout = gridLayoutSelect.value();
+    regenerateLayers();
+  });
 
   createTitle('Color Settings', panel);
   sliders.hueBase = createControl(panel, 'Hue Base', 0, 360, hueBase, 1);
@@ -301,20 +460,106 @@ function createControlGroup(groupName, parent, label, min, max, value, step) {
   return createControl(parent, label, min, max, value, step);
 }
 
+// Helper function to create styled dropdown
+function createStyledDropdown(parent, labelText, options, defaultValue) {
+  const wrapper = createDiv();
+  wrapper.parent(parent);
+  wrapper.class('control-group');
+  
+  const label = createElement('label', labelText);
+  label.parent(wrapper);
+  label.class('control-label');
+  label.style('margin-bottom', '5px');
+  label.style('display', 'block');
+  
+  const dropdown = createSelect();
+  dropdown.parent(wrapper);
+  dropdown.style('width', '100%');
+  dropdown.style('padding', '8px');
+  dropdown.style('margin-bottom', '10px');
+  dropdown.style('background', 'rgba(40, 40, 40, 0.8)');
+  dropdown.style('border', '1px solid #444');
+  dropdown.style('border-radius', '4px');
+  dropdown.style('color', '#eaeaea');
+  dropdown.style('font-family', "'Courier New', monospace");
+  dropdown.style('font-size', '14px');
+  dropdown.style('cursor', 'pointer');
+  
+  // Populate options
+  for (let opt of options) {
+    dropdown.option(opt.name, opt.value);
+  }
+  
+  // Set default value
+  dropdown.selected(defaultValue);
+  
+  return dropdown;
+}
+
 function createControl(parent, labelText, min, max, value, step) {
   const wrapper = createDiv();
   wrapper.parent(parent);
   wrapper.class('control-group');
 
+  // Create label row with label and value display
+  const labelRow = createDiv();
+  labelRow.parent(wrapper);
+  labelRow.style('display', 'flex');
+  labelRow.style('justify-content', 'space-between');
+  labelRow.style('align-items', 'center');
+  labelRow.style('margin-bottom', '5px');
+
   const label = createElement('label', labelText);
-  label.parent(wrapper);
+  label.parent(labelRow);
   label.class('control-label');
+
+  // Create value display span
+  const valueDisplay = createSpan(formatValue(value, step));
+  valueDisplay.parent(labelRow);
+  valueDisplay.class('value-display');
+  valueDisplay.style('font-family', "'Courier New', monospace");
+  valueDisplay.style('font-size', '13px');
+  valueDisplay.style('color', '#69f7be');
+  valueDisplay.style('background', 'rgba(105, 247, 190, 0.1)');
+  valueDisplay.style('padding', '2px 8px');
+  valueDisplay.style('border-radius', '4px');
+  valueDisplay.style('min-width', '50px');
+  valueDisplay.style('text-align', 'right');
 
   const slider = createSlider(min, max, value, step);
   slider.parent(wrapper);
   slider.class('control-slider');
+  
+  // Store reference to value display and step on the slider for later updates
+  slider.valueDisplay = valueDisplay;
+  slider.step = step;
+  
+  // Update value display when slider changes
+  slider.input(() => {
+    valueDisplay.html(formatValue(slider.value(), step));
+  });
 
   return slider;
+}
+
+// Helper function to format slider values appropriately
+function formatValue(value, step) {
+  if (step >= 1) {
+    return Math.round(value).toString();
+  } else if (step >= 0.1) {
+    return value.toFixed(1);
+  } else if (step >= 0.01) {
+    return value.toFixed(2);
+  } else {
+    return value.toFixed(3);
+  }
+}
+
+// Helper function to update a slider's value display
+function updateSliderDisplay(slider) {
+  if (slider.valueDisplay) {
+    slider.valueDisplay.html(formatValue(slider.value(), slider.step));
+  }
 }
 
 function regenerateLayers() {
@@ -326,7 +571,7 @@ function regenerateLayers() {
 
 // 🎲 RANDOMIZER FUNCTION
 function randomizeAll() {
-  sliders.numLayers.value(int(random(2, 10)));
+  sliders.numLayers.value(int(random(2, 6)));
 
   sliders.hueBase.value(random(0, 360));
   sliders.sat.value(random(50, 100));
@@ -367,7 +612,43 @@ function randomizeAll() {
 
   sliders.globalAnimationSpeed.value(random(0.003, 0.08));
 
+  // Randomize pattern settings
+  let randomSymmetry = symmetryOptions[floor(random(symmetryOptions.length))];
+  currentSymmetry = randomSymmetry.value;
+  symmetrySelect.selected(currentSymmetry);
+  
+  let randomNoiseType = noiseTypeOptions[floor(random(noiseTypeOptions.length))];
+  currentNoiseType = randomNoiseType.value;
+  noiseTypeSelect.selected(currentNoiseType);
+  
+  let randomModifier = patternModifierOptions[floor(random(patternModifierOptions.length))];
+  currentModifier = randomModifier.value;
+  modifierSelect.selected(currentModifier);
+  
+  let randomGridLayout = gridLayoutOptions[floor(random(gridLayoutOptions.length))];
+  currentGridLayout = randomGridLayout.value;
+  gridLayoutSelect.selected(currentGridLayout);
+  
+  // Randomize character preset based on current font
+  let presets = usingCustomFont ? charPresets.marathon : charPresets.monospace;
+  let randomPreset = presets[floor(random(presets.length))];
+  charInput.value(randomPreset.chars);
+  asciiChars = randomPreset.chars;
+  
+  // Update preset dropdown to show selected preset
+  presetSelect.selected(randomPreset.chars);
+
+  // Update all slider value displays
+  updateAllSliderDisplays();
+
   regenerateLayers();
+}
+
+// Update all slider value displays (called after randomize)
+function updateAllSliderDisplays() {
+  for (let key in sliders) {
+    updateSliderDisplay(sliders[key]);
+  }
 }
 
 // --------------------
@@ -443,30 +724,283 @@ class ASCIILayer {
 
     textSize(this.symbolSize * 0.8);
 
-    for (let y = 0; y < this.rows / 2; y++) {
-      for (let x = 0; x < this.cols / 2; x++) {
-        if (this.inAnimatedRectangleCutout(x, y)) continue;
-        if (this.inAnimatedBlobCutout(x, y)) continue;
+    // Generate grid positions based on layout
+    let positions = this.generateGridPositions();
+    
+    for (let pos of positions) {
+      let x = pos.x;
+      let y = pos.y;
+      
+      if (this.inAnimatedRectangleCutout(x, y)) continue;
+      if (this.inAnimatedBlobCutout(x, y)) continue;
 
-        let nx = (x + this.seed * 1000) * this.noiseScale;
-        let ny = (y + this.seed * 1000) * this.noiseScale;
-        let n = noise(nx, ny, this.t);
+      // Apply modifier to coordinates
+      let modifiedCoords = this.applyModifier(x, y);
+      
+      // Get noise value based on noise type
+      let n = this.getNoiseValue(modifiedCoords.x, modifiedCoords.y);
+      n = adjustContrast(n, contrast);
 
-        n = adjustContrast(n, contrast);
+      let index = floor(n * (this.chars.length - 1));
+      let c = this.chars[index];
 
-        let index = floor(n * (this.chars.length - 1));
-        let c = this.chars[index];
+      let col = color((hueBase + n * 60 + this.seed * 30) % 360, sat, bright * n);
+      fill(col);
 
-        let col = color((hueBase + n * 60 + this.seed * 30) % 360, sat, bright * n);
-        fill(col);
+      // Apply symmetry
+      this.drawWithSymmetry(c, x, y);
+    }
+    pop();
+  }
 
+  // Generate grid positions based on layout type
+  generateGridPositions() {
+    let positions = [];
+    let halfCols = this.cols / 2;
+    let halfRows = this.rows / 2;
+    
+    switch (currentGridLayout) {
+      case 'polar':
+        let rings = floor(min(halfCols, halfRows));
+        for (let r = 1; r <= rings; r++) {
+          let circumference = floor(TWO_PI * r * 1.5);
+          for (let a = 0; a < circumference; a++) {
+            let angle = (a / circumference) * TWO_PI;
+            let px = halfCols + cos(angle) * r;
+            let py = halfRows + sin(angle) * r;
+            positions.push({ x: px, y: py });
+          }
+        }
+        break;
+        
+      case 'hexagonal':
+        for (let y = 0; y < this.rows; y++) {
+          let xOffset = (y % 2) * 0.5;
+          for (let x = 0; x < this.cols; x++) {
+            positions.push({ x: x + xOffset, y: y * 0.866 });
+          }
+        }
+        break;
+        
+      case 'brick':
+        for (let y = 0; y < this.rows; y++) {
+          let xOffset = (y % 2) * 0.5;
+          for (let x = 0; x < this.cols; x++) {
+            positions.push({ x: x + xOffset, y: y });
+          }
+        }
+        break;
+        
+      case 'cartesian':
+      default:
+        // For symmetry modes, only generate the portion we need
+        if (currentSymmetry === 'none') {
+          for (let y = 0; y < this.rows; y++) {
+            for (let x = 0; x < this.cols; x++) {
+              positions.push({ x: x, y: y });
+            }
+          }
+        } else if (currentSymmetry === 'horizontal') {
+          for (let y = 0; y < this.rows; y++) {
+            for (let x = 0; x < halfCols; x++) {
+              positions.push({ x: x, y: y });
+            }
+          }
+        } else if (currentSymmetry === 'vertical') {
+          for (let y = 0; y < halfRows; y++) {
+            for (let x = 0; x < this.cols; x++) {
+              positions.push({ x: x, y: y });
+            }
+          }
+        } else {
+          // quad, radial, diagonal - use quadrant
+          for (let y = 0; y < halfRows; y++) {
+            for (let x = 0; x < halfCols; x++) {
+              positions.push({ x: x, y: y });
+            }
+          }
+        }
+        break;
+    }
+    
+    return positions;
+  }
+
+  // Apply pattern modifier to coordinates
+  applyModifier(x, y) {
+    let centerX = this.cols / 2;
+    let centerY = this.rows / 2;
+    let dx = x - centerX;
+    let dy = y - centerY;
+    let dist = sqrt(dx * dx + dy * dy);
+    let angle = atan2(dy, dx);
+    
+    switch (currentModifier) {
+      case 'wave':
+        let waveAmt = sin(dist * 0.5 + this.t * 2) * 2;
+        return { x: x + waveAmt, y: y + waveAmt };
+        
+      case 'spiral':
+        let spiralAngle = angle + dist * 0.1 + this.t;
+        let newX = centerX + cos(spiralAngle) * dist;
+        let newY = centerY + sin(spiralAngle) * dist;
+        return { x: newX, y: newY };
+        
+      case 'rings':
+        return { x: dist, y: dist };
+        
+      case 'stripes_h':
+        return { x: 0, y: y };
+        
+      case 'stripes_v':
+        return { x: x, y: 0 };
+        
+      case 'stripes_d':
+        return { x: x + y, y: 0 };
+        
+      case 'checker':
+        let check = ((floor(x) + floor(y)) % 2) * 100;
+        return { x: x + check, y: y + check };
+        
+      case 'none':
+      default:
+        return { x: x, y: y };
+    }
+  }
+
+  // Get noise value based on noise type
+  getNoiseValue(x, y) {
+    let nx = (x + this.seed * 1000) * this.noiseScale;
+    let ny = (y + this.seed * 1000) * this.noiseScale;
+    
+    switch (currentNoiseType) {
+      case 'ridged':
+        let ridged = noise(nx, ny, this.t);
+        return 1 - abs(ridged * 2 - 1);
+        
+      case 'turbulence':
+        return abs(noise(nx, ny, this.t) * 2 - 1);
+        
+      case 'fbm':
+        let fbm = 0;
+        let amp = 1;
+        let freq = 1;
+        for (let i = 0; i < 4; i++) {
+          fbm += noise(nx * freq, ny * freq, this.t) * amp;
+          amp *= 0.5;
+          freq *= 2;
+        }
+        return fbm / 2;
+        
+      case 'worley':
+        return this.worleyNoise(nx, ny);
+        
+      case 'warp':
+        let warpX = noise(nx, ny, this.t) * 4;
+        let warpY = noise(nx + 100, ny + 100, this.t) * 4;
+        return noise(nx + warpX, ny + warpY, this.t);
+        
+      case 'simplex':
+        // Approximate simplex with modified perlin
+        let s = noise(nx * 1.2, ny * 1.2, this.t);
+        let s2 = noise(nx * 0.8 + 50, ny * 0.8 + 50, this.t * 1.1);
+        return (s + s2) / 2;
+        
+      case 'perlin':
+      default:
+        return noise(nx, ny, this.t);
+    }
+  }
+
+  // Simple Worley/Cellular noise implementation
+  worleyNoise(x, y) {
+    let cellX = floor(x);
+    let cellY = floor(y);
+    let minDist = 999;
+    
+    for (let i = -1; i <= 1; i++) {
+      for (let j = -1; j <= 1; j++) {
+        let neighborX = cellX + i;
+        let neighborY = cellY + j;
+        // Use noise to get pseudo-random point in cell
+        let pointX = neighborX + noise(neighborX * 100, neighborY * 100, this.seed);
+        let pointY = neighborY + noise(neighborX * 100 + 50, neighborY * 100 + 50, this.seed);
+        let dist = sqrt(pow(x - pointX, 2) + pow(y - pointY, 2));
+        minDist = min(minDist, dist);
+      }
+    }
+    return constrain(minDist, 0, 1);
+  }
+
+  // Draw character with symmetry applied
+  drawWithSymmetry(c, x, y) {
+    let centerX = this.cols / 2;
+    let centerY = this.rows / 2;
+    
+    switch (currentSymmetry) {
+      case 'none':
+        this.drawChar(c, x, y);
+        break;
+        
+      case 'horizontal':
+        this.drawChar(c, x, y);
+        this.drawChar(c, this.cols - 1 - x, y);
+        break;
+        
+      case 'vertical':
+        this.drawChar(c, x, y);
+        this.drawChar(c, x, this.rows - 1 - y);
+        break;
+        
+      case 'quad':
         this.drawChar(c, x, y);
         this.drawChar(c, this.cols - 1 - x, y);
         this.drawChar(c, x, this.rows - 1 - y);
         this.drawChar(c, this.cols - 1 - x, this.rows - 1 - y);
-      }
+        break;
+        
+      case 'radial6':
+        this.drawRadialSymmetry(c, x, y, 6);
+        break;
+        
+      case 'radial8':
+        this.drawRadialSymmetry(c, x, y, 8);
+        break;
+        
+      case 'radial12':
+        this.drawRadialSymmetry(c, x, y, 12);
+        break;
+        
+      case 'diagonal':
+        this.drawChar(c, x, y);
+        this.drawChar(c, y, x); // Swap x and y for diagonal mirror
+        this.drawChar(c, this.cols - 1 - x, this.rows - 1 - y);
+        this.drawChar(c, this.cols - 1 - y, this.rows - 1 - x);
+        break;
     }
-    pop();
+  }
+
+  // Draw with radial symmetry
+  drawRadialSymmetry(c, x, y, folds) {
+    let centerX = this.cols / 2;
+    let centerY = this.rows / 2;
+    let dx = x - centerX;
+    let dy = y - centerY;
+    let dist = sqrt(dx * dx + dy * dy);
+    let baseAngle = atan2(dy, dx);
+    
+    for (let i = 0; i < folds; i++) {
+      let angle = baseAngle + (TWO_PI / folds) * i;
+      let newX = centerX + cos(angle) * dist;
+      let newY = centerY + sin(angle) * dist;
+      this.drawChar(c, newX, newY);
+      
+      // Mirror for kaleidoscope effect
+      let mirrorAngle = -baseAngle + (TWO_PI / folds) * i;
+      let mirrorX = centerX + cos(mirrorAngle) * dist;
+      let mirrorY = centerY + sin(mirrorAngle) * dist;
+      this.drawChar(c, mirrorX, mirrorY);
+    }
   }
 
   drawChar(c, gridX, gridY) {

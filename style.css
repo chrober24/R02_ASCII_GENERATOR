@@ -92,8 +92,8 @@ body, html {
 
 #control-panel label {
   display: block;
-  margin-top: 12px;
-  margin-bottom: 5px;
+  margin-top: 0;
+  margin-bottom: 0;
   font-weight: 400;
   color: #ccc;
   font-size: 14px;
@@ -116,6 +116,44 @@ body, html {
   outline: none;
   border-color: #69f7be;
   box-shadow: 0 0 0 2px rgba(105, 247, 190, 0.3);
+}
+
+/* Preset select dropdown styling */
+#control-panel select {
+  width: 100%;
+  padding: 8px;
+  background: rgba(40, 40, 40, 0.8);
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #eaeaea;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2369f7be' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 16px;
+  padding-right: 32px;
+}
+
+#control-panel select:hover {
+  border-color: #69f7be;
+}
+
+#control-panel select:focus {
+  outline: none;
+  border-color: #69f7be;
+  box-shadow: 0 0 0 2px rgba(105, 247, 190, 0.3);
+}
+
+#control-panel select option {
+  background: #1a1a1a;
+  color: #eaeaea;
+  padding: 8px;
 }
 
 /* Range slider styling */
