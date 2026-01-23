@@ -96,7 +96,6 @@ let currentGridLayout = 'cartesian';
 // UI Elements
 let sliders = {};
 let toggleButton;
-let screenshotButton;
 let notification;
 let isControlPanelVisible = false;
 let fontToggle; // New control for font selection
@@ -108,6 +107,17 @@ let modifierSelect; // Dropdown for pattern modifiers
 let gridLayoutSelect; // Dropdown for grid layout
 let parallaxEnabled = true; // Track if parallax should be active
 let isTakingScreenshot = false; // Track if screenshot is in progress
+
+// Recording variables
+let captureButton;
+let captureModeSelect;
+let recordingNotification;
+let isRecording = false;
+let mediaRecorder = null;
+let recordedChunks = [];
+let gifRecorder = null;
+let gifFrameInterval = null;
+let recordingStartTime = 0;
 
 function preload() {
   // Load font if available, otherwise use default
@@ -132,7 +142,7 @@ function setup() {
   background(5); // Darker background for better contrast
 
   setupControls();
-  setupScreenshotButton();
+  setupCaptureButton();
   regenerateLayers();
   
   // Canvas click will randomize the art
@@ -143,9 +153,12 @@ function setup() {
     }
   });
   
-  // Setup notification
+  // Setup notifications
   notification = select('#screenshot-notification');
   notification.style('transform', 'translateX(-50%) translateY(-100px)');
+  
+  recordingNotification = select('#recording-notification');
+  recordingNotification.style('transform', 'translateX(-50%) translateY(-100px)');
 }
 
 function draw() {
@@ -403,10 +416,47 @@ function setupControls() {
   randomizeButton.mousePressed(randomizeAll);
 }
 
-function setupScreenshotButton() {
-  // Get screenshot button from HTML
-  screenshotButton = select('#screenshotButton');
-  screenshotButton.mousePressed(takeScreenshot);
+// Setup combined capture button
+function setupCaptureButton() {
+  captureButton = select('#captureButton');
+  captureModeSelect = select('#captureMode');
+  
+  // Update button label when mode changes
+  captureModeSelect.changed(updateCaptureButtonLabel);
+  
+  // Handle capture button click
+  captureButton.mousePressed(handleCapture);
+}
+
+// Update capture button label based on selected mode
+function updateCaptureButtonLabel() {
+  const mode = captureModeSelect.value();
+  
+  if (isRecording) {
+    captureButton.html('⬛ Stop');
+  } else {
+    if (mode === 'screenshot') {
+      captureButton.html('📷 Capture');
+    } else {
+      captureButton.html('🔴 Record');
+    }
+  }
+}
+
+// Handle capture button click based on mode
+function handleCapture() {
+  const mode = captureModeSelect.value();
+  
+  if (mode === 'screenshot') {
+    takeScreenshot();
+  } else {
+    // Recording modes (webm or gif)
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  }
 }
 
 function takeScreenshot() {
@@ -446,6 +496,261 @@ function takeScreenshot() {
       controlPanel.removeClass('hidden');
     }
   }, 100);
+}
+
+// Toggle recording on/off
+function toggleRecording() {
+  if (isRecording) {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+}
+
+// Start recording
+function startRecording() {
+  const format = captureModeSelect.value();
+  isRecording = true;
+  recordingStartTime = millis();
+  
+  // Disable parallax during recording for stable output
+  isTakingScreenshot = true;
+  
+  // Update button appearance
+  captureButton.html('⬛ Stop');
+  captureButton.addClass('recording-active');
+  
+  // Show recording notification
+  recordingNotification.addClass('notification-visible');
+  
+  // Hide control panel for clean recording (but keep top buttons visible for stop)
+  const controlPanel = select('#control-panel');
+  controlPanel.addClass('hidden');
+  
+  if (format === 'webm' || format === 'mp4') {
+    startVideoRecording(format);
+  } else if (format === 'gif') {
+    startGIFRecording();
+  }
+}
+
+// Stop recording
+function stopRecording() {
+  const format = captureModeSelect.value();
+  isRecording = false;
+  
+  // Re-enable parallax
+  isTakingScreenshot = false;
+  
+  // Update button appearance
+  captureButton.html('🔴 Record');
+  captureButton.removeClass('recording-active');
+  
+  // Hide recording notification
+  recordingNotification.removeClass('notification-visible');
+  
+  if (format === 'webm' || format === 'mp4') {
+    stopVideoRecording();
+  } else if (format === 'gif') {
+    stopGIFRecording();
+  }
+}
+
+// Video Recording using MediaRecorder API
+function startVideoRecording(format) {
+  recordedChunks = [];
+  
+  const canvasElement = document.querySelector('canvas');
+  const stream = canvasElement.captureStream(60); // 60 FPS for smoother video
+  
+  // High bitrate for quality (15 Mbps)
+  const bitrate = 15000000;
+  
+  let options = {};
+  let fileExtension = 'webm';
+  let mimeType = 'video/webm';
+  
+  if (format === 'mp4') {
+    // Try MP4/H.264 first (best compatibility for editing/sharing)
+    const mp4Types = [
+      'video/mp4;codecs=avc1.42E01E', // H.264 Baseline
+      'video/mp4;codecs=avc1',
+      'video/mp4'
+    ];
+    
+    for (let type of mp4Types) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        options.mimeType = type;
+        fileExtension = 'mp4';
+        mimeType = 'video/mp4';
+        break;
+      }
+    }
+    
+    // Fallback to WebM with H.264 if MP4 not supported
+    if (!options.mimeType) {
+      if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) {
+        options.mimeType = 'video/webm;codecs=h264';
+        fileExtension = 'webm';
+        mimeType = 'video/webm';
+      }
+    }
+  } else {
+    // WebM format - try VP9 first (better quality), then VP8
+    const webmTypes = [
+      'video/webm;codecs=vp9',
+      'video/webm;codecs=vp8',
+      'video/webm'
+    ];
+    
+    for (let type of webmTypes) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        options.mimeType = type;
+        break;
+      }
+    }
+  }
+  
+  // Add high bitrate for quality
+  options.videoBitsPerSecond = bitrate;
+  
+  console.log('Recording with:', options.mimeType, 'at', bitrate/1000000, 'Mbps');
+  
+  try {
+    mediaRecorder = new MediaRecorder(stream, options);
+  } catch (e) {
+    console.error('MediaRecorder error:', e);
+    // Final fallback
+    mediaRecorder = new MediaRecorder(stream, { videoBitsPerSecond: bitrate });
+  }
+  
+  mediaRecorder.ondataavailable = (event) => {
+    if (event.data && event.data.size > 0) {
+      recordedChunks.push(event.data);
+    }
+  };
+  
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(recordedChunks, { type: mimeType });
+    downloadBlob(blob, `ascii_art_recording.${fileExtension}`);
+    recordedChunks = [];
+    
+    // Show success notification
+    showDownloadNotification('Video saved!');
+  };
+  
+  mediaRecorder.start(100); // Collect data every 100ms
+}
+
+function stopVideoRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+}
+
+// GIF Recording using gif.js
+let gifWorkerBlobURL = null;
+
+// Pre-fetch the GIF worker script and create a blob URL
+async function initGifWorker() {
+  try {
+    const response = await fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js');
+    const workerCode = await response.text();
+    const blob = new Blob([workerCode], { type: 'application/javascript' });
+    gifWorkerBlobURL = URL.createObjectURL(blob);
+    console.log('GIF worker initialized');
+  } catch (e) {
+    console.error('Failed to initialize GIF worker:', e);
+  }
+}
+
+// Initialize the worker on page load
+initGifWorker();
+
+function startGIFRecording() {
+  // Check if GIF library is loaded
+  if (typeof GIF === 'undefined') {
+    console.error('GIF.js library not loaded');
+    alert('GIF recording library not available. Please use WebM format.');
+    stopRecording();
+    return;
+  }
+  
+  // Check if worker blob URL is ready
+  if (!gifWorkerBlobURL) {
+    console.error('GIF worker not initialized');
+    alert('GIF worker not ready. Please try again or use WebM format.');
+    stopRecording();
+    return;
+  }
+  
+  gifRecorder = new GIF({
+    workers: 2,
+    quality: 10,
+    width: width,
+    height: height,
+    workerScript: gifWorkerBlobURL
+  });
+  
+  gifRecorder.on('finished', (blob) => {
+    downloadBlob(blob, 'ascii_art_recording.gif');
+    
+    // Show success notification
+    showDownloadNotification('GIF saved!');
+  });
+  
+  // Capture frames at ~15 FPS for GIF (every ~67ms)
+  gifFrameInterval = setInterval(() => {
+    if (isRecording) {
+      const canvasElement = document.querySelector('canvas');
+      gifRecorder.addFrame(canvasElement, { copy: true, delay: 67 });
+    }
+  }, 67);
+}
+
+function stopGIFRecording() {
+  if (gifFrameInterval) {
+    clearInterval(gifFrameInterval);
+    gifFrameInterval = null;
+  }
+  
+  if (gifRecorder) {
+    // Show processing notification
+    recordingNotification.html('Processing GIF...');
+    recordingNotification.addClass('notification-visible');
+    
+    gifRecorder.render();
+  }
+}
+
+// Download blob helper
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Show download notification
+function showDownloadNotification(message) {
+  recordingNotification.html(message);
+  recordingNotification.style('background', 'rgba(105, 247, 190, 0.9)');
+  recordingNotification.style('color', '#121212');
+  recordingNotification.addClass('notification-visible');
+  
+  setTimeout(() => {
+    recordingNotification.removeClass('notification-visible');
+    // Reset notification styling
+    setTimeout(() => {
+      recordingNotification.html('Recording...');
+      recordingNotification.style('background', 'rgba(255, 82, 82, 0.9)');
+      recordingNotification.style('color', '#fff');
+    }, 500);
+  }, 3000);
 }
 
 function toggleControlPanel() {

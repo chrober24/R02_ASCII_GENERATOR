@@ -248,6 +248,34 @@ canvas {
   transform: translateX(-50%) translateY(0) !important;
 }
 
+/* Recording notification */
+#recording-notification {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100px);
+  background: rgba(255, 82, 82, 0.9);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-weight: bold;
+  transition: transform 0.5s ease;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Recording button active state */
+.recording-active {
+  background: rgba(255, 82, 82, 0.9) !important;
+  border-color: #ff5252 !important;
+  animation: recordingPulse 1s infinite;
+}
+
+@keyframes recordingPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
 /* Animations */
 @keyframes fadeIn {
   from {

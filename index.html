@@ -149,6 +149,41 @@
     .notification-visible {
       transform: translateX(-50%) translateY(0) !important;
     }
+
+    /* Recording notification */
+    #recording-notification {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-100px);
+      background: rgba(255, 82, 82, 0.9);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-weight: bold;
+      transition: transform 0.5s ease;
+      z-index: 100;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Recording button active state */
+    .recording-active {
+      background: rgba(255, 82, 82, 0.9) !important;
+      border-color: #ff5252 !important;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    /* Capture mode selector styling */
+    #captureMode {
+      padding: 10px 15px;
+      font-size: 14px;
+      min-width: 180px;
+    }
   </style>
 </head>
 <body>
@@ -156,7 +191,13 @@
     <!-- UI Controls Container -->
     <div class="ui-controls">
       <button class="button" id="toggleButton">Show Controls</button>
-      <button class="button" id="screenshotButton">Take Screenshot</button>
+      <select class="button" id="captureMode">
+        <option value="screenshot">📷 Screenshot</option>
+        <option value="mp4">🎬 Record MP4 (H.264)</option>
+        <option value="webm">🎬 Record WebM (VP9)</option>
+        <option value="gif">🎬 Record GIF</option>
+      </select>
+      <button class="button" id="captureButton">📷 Capture</button>
     </div>
     
     <!-- Control Panel -->
@@ -169,9 +210,15 @@
     <div id="screenshot-notification">
       Screenshot saved to downloads!
     </div>
+
+    <!-- Recording notification -->
+    <div id="recording-notification">
+      Recording...
+    </div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
   <script src="sketch.js"></script>
 </body>
 </html>
